@@ -10,6 +10,13 @@ const downloadBtn = document.getElementById("downloadBtn");
 const imageCtx = imageCanvas.getContext("2d");
 const resultCtx = resultCanvas.getContext("2d");
 
+const eraserBtn = document.getElementById("eraserMode");
+const eraserSizeInput = document.getElementById("eraserSize");
+
+let eraserActive = false;
+let erasing = false;
+let eraserSize = parseInt(eraserSizeInput.value, 10);
+
 let image = null;
 let scale = 1;
 let selecting = false;
@@ -96,3 +103,51 @@ downloadBtn.addEventListener("click", () => {
   link.href = resultCanvas.toDataURL("image/png");
   link.click();
 });
+
+eraserBtn.addEventListener("click", () => {
+  eraserActive = !eraserActive;
+  eraserBtn.textContent = eraserActive ? "Eraser: ON" : "Eraser Mode";
+  selecting = false;
+});
+
+eraserSizeInput.addEventListener("input", () => {
+  eraserSize = parseInt(eraserSizeInput.value, 10);
+});
+
+imageCanvas.addEventListener("mousedown", (e) => {
+  if (!eraserActive) return;
+  erasing = true;
+  eraseAtMouse(e);
+});
+
+imageCanvas.addEventListener("mouseup", () => {
+  if (eraserActive) erasing = false;
+});
+
+imageCanvas.addEventListener("mousemove", (e) => {
+  if (eraserActive && erasing) {
+    eraseAtMouse(e);
+  }
+});
+
+function eraseAtMouse(e) {
+  const rect = imageCanvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / scale);
+  const y = Math.floor((e.clientY - rect.top) / scale);
+
+  const imageData = resultCtx.getImageData(0, 0, resultCanvas.width, resultCanvas.height);
+  const data = imageData.data;
+  const width = resultCanvas.width;
+
+  for (let dy = -eraserSize; dy <= eraserSize; dy++) {
+    for (let dx = -eraserSize; dx <= eraserSize; dx++) {
+      const px = x + dx;
+      const py = y + dy;
+      if (px < 0 || py < 0 || px >= width || py >= resultCanvas.height) continue;
+      const i = (py * width + px) * 4;
+      data[i + 3] = 0; // make transparent
+    }
+  }
+
+  resultCtx.putImageData(imageData, 0, 0);
+}
