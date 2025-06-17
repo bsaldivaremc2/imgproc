@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Image Transparency Tool</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Transparent Pixel Tool</h1>
+
+    <input type="file" id="imageUpload" accept="image/*" />
+    
+    <div class="controls">
+      <label for="zoom">Zoom:</label>
+      <input type="range" id="zoom" min="1" max="5" step="0.1" value="1">
+      <button id="selectMode">Pick Pixel Area</button>
+      <button id="makeTransparent">Make Transparent</button>
+      <button id="downloadBtn">Download Result</button>
+    </div>
+
+    <div class="canvas-section">
+      <div>
+        <h3>Original Image</h3>
+        <div class="canvas-wrapper">
+          <canvas id="imageCanvas"></canvas>
+        </div>
+      </div>
+      <div>
+        <h3>Selected Color</h3>
+        <div id="colorPreview"></div>
+      </div>
+      <div>
+        <h3>Result</h3>
+        <div class="canvas-wrapper">
+          <canvas id="resultCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
