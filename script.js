@@ -6,22 +6,22 @@ const selectModeBtn = document.getElementById("selectMode");
 const makeTransparentBtn = document.getElementById("makeTransparent");
 const colorPreview = document.getElementById("colorPreview");
 const downloadBtn = document.getElementById("downloadBtn");
-
-const imageCtx = imageCanvas.getContext("2d");
-const resultCtx = resultCanvas.getContext("2d");
-
 const eraserBtn = document.getElementById("eraserMode");
 const eraserSizeInput = document.getElementById("eraserSize");
 
-let eraserActive = false;
-let erasing = false;
-let eraserSize = parseInt(eraserSizeInput.value, 10);
+const imageCtx = imageCanvas.getContext("2d");
+const resultCtx = resultCanvas.getContext("2d");
 
 let image = null;
 let scale = 1;
 let selecting = false;
 let selectedColor = null;
 let imageName = "output";
+
+// Eraser state
+let eraserActive = false;
+let erasing = false;
+let eraserSize = parseInt(eraserSizeInput.value, 10);
 
 imageUpload.addEventListener("change", (e) => {
   const file = e.target.files[0];
@@ -37,9 +37,12 @@ imageUpload.addEventListener("change", (e) => {
       imageCanvas.height = img.height;
       resultCanvas.width = img.width;
       resultCanvas.height = img.height;
+      imageCtx.clearRect(0, 0, img.width, img.height);
+      resultCtx.clearRect(0, 0, img.width, img.height);
       imageCtx.drawImage(img, 0, 0);
       resultCtx.drawImage(img, 0, 0);
       image = img;
+      drawImageScaled();
     };
     img.src = reader.result;
   };
@@ -48,9 +51,7 @@ imageUpload.addEventListener("change", (e) => {
 
 zoomSlider.addEventListener("input", () => {
   scale = parseFloat(zoomSlider.value);
-  if (image) {
-    drawImageScaled();
-  }
+  drawImageScaled();
 });
 
 function drawImageScaled() {
@@ -60,10 +61,12 @@ function drawImageScaled() {
 
 selectModeBtn.addEventListener("click", () => {
   selecting = true;
+  eraserActive = false;
+  eraserBtn.textContent = "Eraser Mode";
 });
 
 imageCanvas.addEventListener("click", (e) => {
-  if (!selecting) return;
+  if (!selecting || !image) return;
 
   const rect = imageCanvas.getBoundingClientRect();
   const x = Math.floor((e.clientX - rect.left) / scale);
@@ -78,7 +81,7 @@ imageCanvas.addEventListener("click", (e) => {
 makeTransparentBtn.addEventListener("click", () => {
   if (!selectedColor || !image) return;
 
-  const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+  const imageData = resultCtx.getImageData(0, 0, resultCanvas.width, resultCanvas.height);
   const data = imageData.data;
   const tolerance = 10;
 
@@ -104,6 +107,7 @@ downloadBtn.addEventListener("click", () => {
   link.click();
 });
 
+// Eraser mode
 eraserBtn.addEventListener("click", () => {
   eraserActive = !eraserActive;
   eraserBtn.textContent = eraserActive ? "Eraser: ON" : "Eraser Mode";
@@ -131,6 +135,8 @@ imageCanvas.addEventListener("mousemove", (e) => {
 });
 
 function eraseAtMouse(e) {
+  if (!image) return;
+
   const rect = imageCanvas.getBoundingClientRect();
   const x = Math.floor((e.clientX - rect.left) / scale);
   const y = Math.floor((e.clientY - rect.top) / scale);
