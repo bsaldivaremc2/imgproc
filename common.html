@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Image Editor</title>
+<style>
+body { font-family: Arial; background:#f4f6f8; margin:0; padding:20px; }
+.container { max-width:1000px; margin:auto; background:white; padding:20px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.1);} 
+h1 { text-align:center; }
+.controls { display:flex; flex-wrap:wrap; gap:10px; margin-top:15px; }
+button,input,select { padding:8px; border-radius:6px; border:1px solid #ccc; }
+
+.canvas-wrapper {
+  position: relative;
+  width: 100%;
+  height: 70vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+canvas {
+  display:block;
+}
+
+.crop-box {
+  position:absolute;
+  border:2px dashed #00aaff;
+  background:rgba(0,0,0,0.25);
+  cursor:move;
+}
+
+.handle {
+  width:10px; height:10px;
+  background:white;
+  border:1px solid black;
+  position:absolute;
+}
+.handle.br { bottom:-5px; right:-5px; cursor:nwse-resize; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Image Editor</h1>
+<input type="file" id="upload" accept="image/*" />
+
+<div class="controls">
+<button onclick="flipHorizontal()">Flip H</button>
+<button onclick="flipVertical()">Flip V</button>
+
+<label>Brightness</label>
+<input type="range" id="brightness" min="0" max="200" value="100" oninput="applyFilters()">
+
+<label>Contrast</label>
+<input type="range" id="contrast" min="0" max="200" value="100" oninput="applyFilters()">
+
+<select id="ratio">
+<option value="free">Free</option>
+<option value="16/9">16:9</option>
+<option value="9/16">9:16</option>
+</select>
+
+<button onclick="applyCrop()">Crop</button>
+<button onclick="downloadImage()">Download</button>
+</div>
+
+<div class="canvas-wrapper" id="wrapper">
+<canvas id="canvas"></canvas>
+<div id="cropBox" class="crop-box">
+<div class="handle br"></div>
+</div>
+</div>
+</div>
+
+<script>
+const upload = document.getElementById('upload');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const cropBox = document.getElementById('cropBox');
+const wrapper = document.getElementById('wrapper');
+
+let img = new Image();
+let fileName = "edited";
+
+let scale = 1;
+let offsetX = 0;
+let offsetY = 0;
+
+let crop = { x:50, y:50, w:200, h:150 };
+let dragging = false;
+let resizing = false;
+
+upload.addEventListener('change', (e)=>{
+ const file = e.target.files[0];
+ if(!file) return;
+ fileName = file.name.split('.').slice(0,-1).join('.');
+ const reader = new FileReader();
+ reader.onload = ev => {
+   img.onload = ()=>{
+     fitToScreen();
+     centerImage();
+     initCrop();
+     draw();
+   };
+   img.src = ev.target.result;
+ };
+ reader.readAsDataURL(file);
+});
+
+function fitToScreen(){
+ const maxW = wrapper.clientWidth;
+ const maxH = wrapper.clientHeight;
+ const ratio = Math.min(maxW/img.width, maxH/img.height);
+ scale = ratio;
+ canvas.width = img.width * scale;
+ canvas.height = img.height * scale;
+}
+
+function centerImage(){
+ offsetX = (wrapper.clientWidth - canvas.width)/2;
+ offsetY = (wrapper.clientHeight - canvas.height)/2;
+ canvas.style.position = 'absolute';
+ canvas.style.left = offsetX + 'px';
+ canvas.style.top = offsetY + 'px';
+}
+
+function draw(){
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ ctx.drawImage(img,0,0,canvas.width,canvas.height);
+ updateCropBox();
+}
+
+function updateCropBox(){
+ cropBox.style.left = (offsetX + crop.x) + 'px';
+ cropBox.style.top = (offsetY + crop.y) + 'px';
+ cropBox.style.width = crop.w + 'px';
+ cropBox.style.height = crop.h + 'px';
+}
+
+function initCrop(){
+ crop = { x:20, y:20, w:200, h:150 };
+}
+
+cropBox.addEventListener('mousedown', (e)=>{
+ e.preventDefault();
+ if(e.target.classList.contains('handle')) resizing = true;
+ else dragging = true;
+});
+
+document.addEventListener('mousemove', (e)=>{
+ if(!dragging && !resizing) return;
+
+ if(dragging){
+   crop.x += e.movementX;
+   crop.y += e.movementY;
+ }
+
+ if(resizing){
+   let ratio = document.getElementById('ratio').value;
+
+   if(ratio !== 'free'){
+     const [rw,rh] = ratio.split('/').map(Number);
+     crop.w += e.movementX;
+     crop.h = crop.w * (rh/rw);
+   } else {
+     crop.w += e.movementX;
+     crop.h += e.movementY;
+   }
+ }
+
+ clampCrop();
+ updateCropBox();
+});
+
+document.addEventListener('mouseup', ()=>{
+ dragging=false;
+ resizing=false;
+});
+
+function clampCrop(){
+ crop.w = Math.max(20, crop.w);
+ crop.h = Math.max(20, crop.h);
+
+ crop.x = Math.max(0, Math.min(crop.x, canvas.width - crop.w));
+ crop.y = Math.max(0, Math.min(crop.y, canvas.height - crop.h));
+}
+
+function applyCrop(){
+ const realX = crop.x / scale;
+ const realY = crop.y / scale;
+ const realW = crop.w / scale;
+ const realH = crop.h / scale;
+
+ const temp = document.createElement('canvas');
+ temp.width = Math.floor(realW);
+ temp.height = Math.floor(realH);
+ const tctx = temp.getContext('2d');
+
+ tctx.drawImage(img, realX, realY, realW, realH, 0,0,temp.width,temp.height);
+
+ const newImg = new Image();
+ newImg.onload = ()=>{
+   img = newImg;
+   fitToScreen();
+   centerImage();
+   initCrop();
+   draw();
+ };
+ newImg.src = temp.toDataURL();
+}
+
+function applyFilters(){
+ const b = document.getElementById('brightness').value;
+ const c = document.getElementById('contrast').value;
+ ctx.filter = `brightness(${b}%) contrast(${c}%)`;
+ draw();
+ ctx.filter = 'none';
+}
+
+function flipHorizontal(){
+ const temp = document.createElement('canvas');
+ temp.width = img.width;
+ temp.height = img.height;
+ const t = temp.getContext('2d');
+ t.translate(img.width,0);
+ t.scale(-1,1);
+ t.drawImage(img,0,0);
+ img.src = temp.toDataURL();
+}
+
+function flipVertical(){
+ const temp = document.createElement('canvas');
+ temp.width = img.width;
+ temp.height = img.height;
+ const t = temp.getContext('2d');
+ t.translate(0,img.height);
+ t.scale(1,-1);
+ t.drawImage(img,0,0);
+ img.src = temp.toDataURL();
+}
+
+function downloadImage(){
+ const link = document.createElement('a');
+ const timestamp = Date.now();
+ link.download = `${fileName}_${timestamp}.png`;
+ link.href = img.src;
+ link.click();
+}
+</script>
+</body>
+</html>
+
